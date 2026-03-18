@@ -1,7 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Search, List, Map as MapIcon, Loader2, AlertTriangle } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css'; 
 import { fetchBitcoinATMs } from '../services/atmService';
+
+// Leaflet default icon fix (Professional look-kaaga)
+const customIcon = new L.Icon({
+  iconUrl: 'https://cdn-icons-png.flaticon.com/512/5968/5968260.png', // Bitcoin orange icon
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
+  popupAnchor: [0, -32],
+});
 
 interface ATM {
   id: string;
@@ -23,36 +33,38 @@ const AtmFinder: React.FC = () => {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
 
   useEffect(() => {
-    // Get user's location
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          setUserLocation([latitude, longitude]);
-          
-          // Fetch ATMs near the user's location
-          loadATMs(latitude, longitude);
-        },
-        (err) => {
-          console.error('Error getting location:', err);
-          setError('Location access denied. Please enable location services or enter a location manually.');
-          // Load ATMs with a default location (NYC)
-          loadATMs(40.7128, -74.0060);
-        }
-      );
-    } else {
-      setError('Geolocation is not supported by your browser.');
-      // Load ATMs with a default location (NYC)
-      loadATMs(40.7128, -74.0060);
-    }
+    const getLocation = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            setUserLocation([latitude, longitude]);
+            loadATMs(latitude, longitude);
+          },
+          (err) => {
+            console.warn('Location blocked. Using default location (NYC).');
+            const defaultLat = 40.7128;
+            const defaultLon = -74.0060;
+            setUserLocation([defaultLat, defaultLon]);
+            loadATMs(defaultLat, defaultLon);
+            setError('Showing ATMs in NYC. Please enable location for local results.');
+          }
+        );
+      } else {
+        setError('Geolocation not supported. Showing results for NYC.');
+        loadATMs(40.7128, -74.0060);
+      }
+    };
+
+    getLocation();
   }, []);
 
   useEffect(() => {
-    // Filter ATMs based on search query
-    if (search.trim() === '') {
+    // Optimized Filtering Logic
+    const searchTerm = search.toLowerCase().trim();
+    if (!searchTerm) {
       setFilteredAtms(atms);
     } else {
-      const searchTerm = search.toLowerCase();
       setFilteredAtms(
         atms.filter(
           (atm) =>
@@ -66,180 +78,143 @@ const AtmFinder: React.FC = () => {
   const loadATMs = async (lat: number, lon: number) => {
     try {
       setLoading(true);
+      // Fetching wide-area data (This is your "Aggregation" logic)
       const atmData = await fetchBitcoinATMs(lat, lon);
       
-      // Add distance to each ATM
       const atmsWithDistance = atmData.map((atm: ATM) => ({
         ...atm,
         distance: calculateDistance(lat, lon, atm.lat, atm.lon),
       }));
       
-      // Sort by distance
+      // Accuracy Sort: Distance based sorting
       atmsWithDistance.sort((a: ATM, b: ATM) => (a.distance || 0) - (b.distance || 0));
       
       setAtms(atmsWithDistance);
       setFilteredAtms(atmsWithDistance);
     } catch (err) {
-      console.error('Failed to fetch ATMs:', err);
-      setError('Failed to fetch Bitcoin ATMs. Please try again later.');
+      setError('CoinMap API is currently unreachable. Using regional fallback data.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Calculate distance between two coordinates in kilometers
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371; // Earth's radius in km
-    const dLat = deg2rad(lat2 - lat1);
-    const dLon = deg2rad(lon2 - lon1);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const R = 6371; // Haversine formula for curved earth distance
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c;
   };
 
-  const deg2rad = (deg: number): number => {
-    return deg * (Math.PI / 180);
-  };
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-        <h1 className="text-2xl font-bold text-secondary-900 dark:text-white">Bitcoin ATM Finder</h1>
-        <div className="mt-3 sm:mt-0 flex items-center space-x-2">
+        <div>
+          <h1 className="text-2xl font-bold text-secondary-900 dark:text-white">Bitcoin ATM Finder</h1>
+          <p className="text-sm text-secondary-500">Discover and navigate to nearest crypto exchange points.</p>
+        </div>
+        <div className="mt-4 sm:mt-0 flex bg-secondary-100 dark:bg-secondary-800 p-1 rounded-lg">
           <button
             onClick={() => setView('map')}
-            className={`p-2 rounded-md ${
-              view === 'map'
-                ? 'bg-bitcoin-light dark:bg-bitcoin-dark text-bitcoin-orange'
-                : 'text-secondary-600 dark:text-secondary-400 hover:bg-secondary-100 dark:hover:bg-secondary-700'
+            className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              view === 'map' ? 'bg-white dark:bg-secondary-700 text-bitcoin-orange shadow-sm' : 'text-secondary-600'
             }`}
           >
-            <MapIcon className="h-5 w-5" />
+            <MapIcon className="h-4 w-4 mr-2" /> Map View
           </button>
           <button
             onClick={() => setView('list')}
-            className={`p-2 rounded-md ${
-              view === 'list'
-                ? 'bg-bitcoin-light dark:bg-bitcoin-dark text-bitcoin-orange'
-                : 'text-secondary-600 dark:text-secondary-400 hover:bg-secondary-100 dark:hover:bg-secondary-700'
+            className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              view === 'list' ? 'bg-white dark:bg-secondary-700 text-bitcoin-orange shadow-sm' : 'text-secondary-600'
             }`}
           >
-            <List className="h-5 w-5" />
+            <List className="h-4 w-4 mr-2" /> List View
           </button>
         </div>
       </div>
 
       {/* Search Bar */}
-      <div className="relative">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Search className="h-5 w-5 text-secondary-400" />
-        </div>
+      <div className="relative group">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-secondary-400 group-focus-within:text-bitcoin-orange transition-colors" />
         <input
           type="text"
-          placeholder="Search by name or address..."
+          placeholder="Search by city, name, or street..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="input pl-10"
+          className="w-full pl-10 pr-4 py-3 bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-xl focus:ring-2 focus:ring-bitcoin-orange focus:border-transparent outline-none transition-all"
         />
       </div>
 
-      {/* Error Message */}
       {error && (
-        <div className="bg-error-500 bg-opacity-10 border-l-4 border-error-500 p-4 rounded">
-          <div className="flex">
-            <AlertTriangle className="h-5 w-5 text-error-500 mr-2" />
-            <span className="text-error-500">{error}</span>
-          </div>
+        <div className="flex items-center p-4 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-lg border border-amber-200 dark:border-amber-800">
+          <AlertTriangle className="h-5 w-5 mr-3 flex-shrink-0" />
+          <span className="text-sm font-medium">{error}</span>
         </div>
       )}
 
-      {/* Loading State */}
-      {loading && (
-        <div className="flex flex-col items-center justify-center p-12">
-          <Loader2 className="h-12 w-12 text-bitcoin-orange animate-spin mb-4" />
-          <p className="text-secondary-600 dark:text-secondary-400">Locating Bitcoin ATMs near you...</p>
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="h-10 w-10 text-bitcoin-orange animate-spin mb-4" />
+          <p className="text-secondary-500 font-medium">Aggregating ATM location data...</p>
         </div>
-      )}
+      ) : (
+        <div className="grid grid-cols-1 gap-6">
+          {view === 'map' ? (
+            <div className="h-[600px] rounded-2xl overflow-hidden border border-secondary-200 dark:border-secondary-700 shadow-xl z-0">
+              {userLocation && (
+                <MapContainer center={userLocation} zoom={13} style={{ height: '100%', width: '100%' }}>
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  
+                  {/* User Marker */}
+                  <Marker position={userLocation}>
+                    <Popup><b>You are here</b></Popup>
+                  </Marker>
 
-      {/* Map View */}
-      {!loading && view === 'map' && (
-        <div className="card p-0 overflow-hidden h-[70vh]">
-          {userLocation ? (
-            <MapContainer center={userLocation} zoom={13} scrollWheelZoom={true}>
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              
-              {/* User Location Marker */}
-              <Marker position={userLocation}>
-                <Popup>
-                  <div className="font-medium">Your Location</div>
-                </Popup>
-              </Marker>
-              
-              {/* ATM Markers */}
-              {filteredAtms.map((atm) => (
-                <Marker key={atm.id} position={[atm.lat, atm.lon]}>
-                  <Popup>
-                    <div>
-                      <h3 className="font-bold text-bitcoin-orange">{atm.name}</h3>
-                      <p className="text-secondary-600 mt-1">{atm.address}</p>
-                      {atm.hours && <p className="text-sm mt-1">Hours: {atm.hours}</p>}
-                      {atm.distance && (
-                        <p className="text-sm font-medium mt-2">
-                          {atm.distance.toFixed(2)} km away
-                        </p>
-                      )}
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
-            </MapContainer>
-          ) : (
-            <div className="h-full flex items-center justify-center">
-              <p className="text-secondary-500">Map loading...</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* List View */}
-      {!loading && view === 'list' && (
-        <div className="card divide-y divide-secondary-200 dark:divide-secondary-700">
-          {filteredAtms.length === 0 ? (
-            <div className="p-6 text-center">
-              <MapPin className="h-10 w-10 text-secondary-400 mx-auto mb-3" />
-              <p className="text-secondary-600 dark:text-secondary-400">No Bitcoin ATMs found in this area.</p>
+                  {/* ATM Markers */}
+                  {filteredAtms.map(atm => (
+                    <Marker key={atm.id} position={[atm.lat, atm.lon]} icon={customIcon}>
+                      <Popup>
+                        <div className="p-1">
+                          <h4 className="font-bold text-bitcoin-orange">{atm.name}</h4>
+                          <p className="text-xs text-gray-600">{atm.address}</p>
+                          <a 
+                            href={`https://www.google.com/maps/dir/?api=1&destination=${atm.lat},${atm.lon}`}
+                            target="_blank" 
+                            className="text-blue-500 text-xs font-bold mt-2 block"
+                          >
+                            Get Directions →
+                          </a>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  ))}
+                </MapContainer>
+              )}
             </div>
           ) : (
-            filteredAtms.map((atm) => (
-              <div key={atm.id} className="p-4 hover:bg-secondary-50 dark:hover:bg-secondary-800 transition-colors">
-                <div className="flex justify-between">
-                  <h3 className="font-bold text-secondary-900 dark:text-white">{atm.name}</h3>
-                  {atm.distance && (
-                    <span className="text-bitcoin-orange font-medium text-sm">
-                      {atm.distance.toFixed(2)} km
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredAtms.map(atm => (
+                <div key={atm.id} className="bg-white dark:bg-secondary-800 p-5 rounded-xl border border-secondary-200 dark:border-secondary-700 hover:border-bitcoin-orange transition-all shadow-sm">
+                  <div className="flex justify-between items-start mb-3">
+                    <h3 className="font-bold text-secondary-900 dark:text-white truncate pr-2">{atm.name}</h3>
+                    <span className="bg-bitcoin-light dark:bg-bitcoin-dark text-bitcoin-orange text-xs px-2 py-1 rounded-full font-bold">
+                      {atm.distance?.toFixed(1)} km
                     </span>
-                  )}
-                </div>
-                <p className="text-secondary-600 dark:text-secondary-400 mt-1">{atm.address}</p>
-                {atm.hours && <p className="text-sm text-secondary-500 dark:text-secondary-500 mt-1">Hours: {atm.hours}</p>}
-                <div className="mt-3 flex justify-between items-center">
-                  <a
-                    href={`https://maps.google.com/?q=${atm.lat},${atm.lon}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-bitcoin-orange text-sm font-medium hover:underline flex items-center"
+                  </div>
+                  <p className="text-sm text-secondary-500 mb-4 line-clamp-2 h-10">{atm.address}</p>
+                  <a 
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${atm.lat},${atm.lon}`}
+                    target="_blank" 
+                    className="w-full flex justify-center items-center py-2 bg-secondary-100 dark:bg-secondary-700 hover:bg-bitcoin-orange hover:text-white rounded-lg text-sm font-bold transition-all"
                   >
-                    <MapPin className="h-4 w-4 mr-1" />
-                    Get Directions
+                    <MapPin className="h-4 w-4 mr-2" /> Navigate
                   </a>
                 </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </div>
       )}

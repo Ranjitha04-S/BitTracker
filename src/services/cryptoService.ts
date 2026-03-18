@@ -1,30 +1,17 @@
 import axios from 'axios';
 
-const COINGECKO_API_URL = 'https://api.coingecko.com/api/v3';
+const API_BASE = 'https://api.coingecko.com/api/v3';
 
-interface CoinGeckoResponse {
-  market_data: {
-    current_price: {
-      usd: number;
-    };
-    price_change_24h: number;
-    price_change_percentage_24h: number;
-    market_cap: {
-      usd: number;
-    };
-    total_volume: {
-      usd: number;
-    };
-    high_24h: {
-      usd: number;
-    };
-    low_24h: {
-      usd: number;
-    };
-  };
-}
+// Simple Cache Object
+const cache: Record<string, { data: any; expiry: number }> = {};
+const CACHE_DURATION = 60000; // 1 minute cache
 
-interface BitcoinData {
+const api = axios.create({
+  baseURL: API_BASE,
+  timeout: 10000,
+});
+
+export interface BitcoinData {
   currentPrice: number;
   priceChange24h: number;
   priceChangePercentage24h: number;
@@ -34,15 +21,28 @@ interface BitcoinData {
   low24h: number;
 }
 
+/**
+ * Fetches Live Market Data
+ * Resume Point: Implemented custom caching layer to optimize API rate limit usage.
+ */
 export const fetchBitcoinData = async (): Promise<BitcoinData> => {
+  const cacheKey = 'btc_live_data';
+  
+  if (cache[cacheKey] && cache[cacheKey].expiry > Date.now()) {
+    return cache[cacheKey].data;
+  }
+
   try {
-    const response = await axios.get<CoinGeckoResponse>(
-      `${COINGECKO_API_URL}/coins/bitcoin?localization=false&tickers=false&community_data=false&developer_data=false`
-    );
+    const { data } = await api.get('/coins/bitcoin', {
+      params: {
+        localization: false,
+        tickers: false,
+        community_data: false,
+        developer_data: false,
+      }
+    });
 
-    const data = response.data;
-
-    return {
+    const result = {
       currentPrice: data.market_data.current_price.usd,
       priceChange24h: data.market_data.price_change_24h,
       priceChangePercentage24h: data.market_data.price_change_percentage_24h,
@@ -51,57 +51,55 @@ export const fetchBitcoinData = async (): Promise<BitcoinData> => {
       high24h: data.market_data.high_24h.usd,
       low24h: data.market_data.low_24h.usd,
     };
-  } catch (error) {
-    console.error('Error fetching Bitcoin data:', error);
 
-    // Return mock data as fallback
+    cache[cacheKey] = { data: result, expiry: Date.now() + CACHE_DURATION };
+    return result;
+
+  } catch (error) {
+    console.warn('Using Fallback Data: API Rate limited or unreachable.');
     return {
-      currentPrice: 55420.32,
-      priceChange24h: 1250.65,
-      priceChangePercentage24h: 2.31,
-      marketCap: 1050000000000,
-      volume24h: 35760000000,
-      high24h: 56100.25,
-      low24h: 54200.10,
+      currentPrice: 62450.12,
+      priceChange24h: 1420.50,
+      priceChangePercentage24h: 2.15,
+      marketCap: 1200000000000,
+      volume24h: 42000000000,
+      high24h: 63100.00,
+      low24h: 61200.00,
     };
   }
 };
 
-export const fetchHistoricalData = async (
-  days: number = 30
-): Promise<{ prices: [number, number][] }> => {
+/**
+ * Fetches Historical Price Points for Charts
+ */
+export const fetchHistoricalData = async (days: number = 30): Promise<{ prices: [number, number][] }> => {
+  const cacheKey = `btc_history_${days}`;
+  
+  if (cache[cacheKey] && cache[cacheKey].expiry > Date.now()) {
+    return cache[cacheKey].data;
+  }
+
   try {
-    const response = await axios.get<{ prices: [number, number][] }>(
-      `${COINGECKO_API_URL}/coins/bitcoin/market_chart?vs_currency=usd&days=${days}`
-    );
+    const { data } = await api.get('/coins/bitcoin/market_chart', {
+      params: { vs_currency: 'usd', days }
+    });
 
-    return response.data;
+    cache[cacheKey] = { data, expiry: Date.now() + (CACHE_DURATION * 5) };
+    return data;
   } catch (error) {
-    console.error('Error fetching historical data:', error);
-
-    // Return mock data as fallback
-    return {
-      prices: generateMockPriceData(days),
-    };
+    return { prices: generateMockPriceData(days) };
   }
 };
 
-// Helper function to generate mock price data
 const generateMockPriceData = (days: number): [number, number][] => {
   const data: [number, number][] = [];
+  let currentPrice = 58000;
   const now = Date.now();
-  const dayInMs = 24 * 60 * 60 * 1000;
-  const startPrice = 50000 + Math.random() * 10000;
 
   for (let i = 0; i < days; i++) {
-    const timestamp = now - (days - i) * dayInMs;
-    const volatility = Math.random() * 0.05; // 5% max daily change
-    const changePercent = (Math.random() * volatility * 2) - volatility;
-    const price =
-      i === 0 ? startPrice : data[i - 1][1] * (1 + changePercent);
-
-    data.push([timestamp, parseFloat(price.toFixed(2))]);
+    const timestamp = now - (days - i) * 24 * 60 * 60 * 1000;
+    currentPrice += (Math.random() - 0.5) * 2000;
+    data.push([timestamp, parseFloat(currentPrice.toFixed(2))]);
   }
-
   return data;
 };

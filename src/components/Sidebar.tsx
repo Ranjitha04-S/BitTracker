@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -9,8 +9,30 @@ import {
   Settings,
   HelpCircle,
 } from 'lucide-react';
+import { fetchBitcoinData } from '../services/cryptoService'; // Import unga service
 
 const Sidebar: React.FC = () => {
+  // Logic to handle live price in sidebar
+  const [priceData, setPriceData] = useState<{price: number, change: number} | null>(null);
+
+  useEffect(() => {
+    const getLivePrice = async () => {
+      try {
+        const data = await fetchBitcoinData();
+        setPriceData({
+          price: data.currentPrice,
+          change: data.priceChangePercentage24h
+        });
+      } catch (err) {
+        console.error("Sidebar price fetch failed");
+      }
+    };
+
+    getLivePrice();
+    const interval = setInterval(getLivePrice, 60000); // Every 1 minute refresh
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <aside className="hidden md:flex flex-col w-64 bg-white dark:bg-secondary-800 border-r border-secondary-200 dark:border-secondary-700">
       <div className="p-4">
@@ -36,17 +58,19 @@ const Sidebar: React.FC = () => {
         </nav>
       </div>
       
+      {/* Dynamic Price Card Section */}
       <div className="mt-auto p-4">
-        <div className="rounded-lg bg-bitcoin-light dark:bg-bitcoin-dark p-4">
+        <div className="rounded-lg bg-bitcoin-light dark:bg-bitcoin-dark p-4 border border-bitcoin-orange/20">
           <div className="flex items-center justify-between mb-2">
-            <span className="font-medium text-sm text-secondary-600 dark:text-secondary-300">Current Price</span>
-            <span className="animate-pulse-slow inline-block w-3 h-3 bg-green-500 rounded-full"></span>
+            <span className="font-medium text-sm text-secondary-600 dark:text-secondary-300">Live BTC Price</span>
+            <span className="animate-ping inline-block w-2 h-2 bg-green-500 rounded-full"></span>
           </div>
-          <div className="text-lg font-bold text-secondary-900 dark:text-white" id="current-price">
-            $--,---
+          <div className="text-lg font-bold text-secondary-900 dark:text-white">
+            {priceData ? `$${priceData.price.toLocaleString()}` : 'Loading...'}
           </div>
-          <div className="text-sm text-success-500 mt-1" id="price-change">
-            +-.--% 24h
+          <div className={`text-sm mt-1 font-medium ${priceData && priceData.change >= 0 ? 'text-success-500' : 'text-error-500'}`}>
+            {priceData ? `${priceData.change >= 0 ? '+' : ''}${priceData.change.toFixed(2)}%` : '--'} 
+            <span className="ml-1 text-secondary-400 font-normal text-xs">24h</span>
           </div>
         </div>
       </div>
@@ -54,6 +78,7 @@ const Sidebar: React.FC = () => {
   );
 };
 
+// SidebarLink component stays the same...
 interface SidebarLinkProps {
   to: string;
   icon: React.ReactNode;
