@@ -36,7 +36,7 @@ const Dashboard: React.FC = () => {
     try {
       if (!silent) setLoading(true);
       else setIsRefreshing(true);
-      
+
       const data = await fetchBitcoinData();
       setBitcoinData(data);
       setError(null);
@@ -52,7 +52,7 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     loadData();
     // Resume Point: 30s Polling for Real-time consistency
-    const interval = setInterval(() => loadData(true), 30000); 
+    const interval = setInterval(() => loadData(true), 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -156,21 +156,21 @@ const Dashboard: React.FC = () => {
           description="In-depth historical trends and volatility analysis."
           linkTo="/price-tracker"
           icon={<LineChart className="h-6 w-6" />}
-          color="from-primary-500 to-primary-700"
+          color="bg-blue-500"         // flat blue
         />
         <QuickAccessCard
           title="Tax Intelligence"
           description="Regional tax estimation for Bitcoin assets."
           linkTo="/tax-calculator"
           icon={<Calculator className="h-6 w-6" />}
-          color="from-success-500 to-success-700"
+          color="bg-emerald-500"      // flat green
         />
         <QuickAccessCard
           title="ATM Locator"
           description="Find over 500+ secure Bitcoin exchange points."
           linkTo="/atm-finder"
           icon={<MapPin className="h-6 w-6" />}
-          color="from-warning-500 to-warning-700"
+          color="bg-amber-500"        // flat yellow/amber
         />
       </div>
     </div>
@@ -178,17 +178,17 @@ const Dashboard: React.FC = () => {
 };
 
 // Sub-component for Cleanliness
-const QuickAccessCard: React.FC<{title: string, description: string, linkTo: string, icon: React.ReactNode, color: string}> = ({
+const QuickAccessCard: React.FC<{ title: string, description: string, linkTo: string, icon: React.ReactNode, color: string }> = ({
   title, description, linkTo, icon, color
 }) => (
-  <Link to={linkTo} className="group card overflow-hidden hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
-    <div className={`bg-gradient-to-br ${color} p-5 text-white flex justify-between items-center`}>
+  <Link to={linkTo} className="group card overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+    <div className={`${color} p-5 text-white flex justify-between items-center`}>
       <h3 className="text-lg font-bold tracking-tight">{title}</h3>
-      <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm group-hover:scale-110 transition-transform">
+      <div className="p-2 bg-white/20 rounded-lg group-hover:scale-110 transition-transform">
         {icon}
       </div>
     </div>
-    <div className="p-5">
+    <div className="p-5 bg-white dark:bg-secondary-800">
       <p className="text-secondary-600 dark:text-secondary-400 text-sm leading-relaxed mb-4">{description}</p>
       <div className="text-bitcoin-orange text-sm font-bold flex items-center group-hover:translate-x-1 transition-transform">
         Explore Module <ArrowUpRight className="h-4 w-4 ml-1" />
