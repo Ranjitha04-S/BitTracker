@@ -26,16 +26,8 @@ Each component has been thoughtfully designed for clarity, responsiveness, and e
 - Interactive map for locating Bitcoin ATMs based on the user's location
 - Estimation of cryptocurrency tax liabilities based on user input
 
-## Contribution
-
-As a core contributor to this project, I was responsible for:
-
-- Integrating the **Bitcoin ATM Locator** using the Google Maps API, ensuring accurate geolocation and user-friendly display.
-- Developing the **Bitcoin Tax Calculator** component, which accepts user-defined inputs to provide tax estimation results.
-
-## Project Status
-
-The project is currently in active development and serves as a frontend application. API keys (particularly for Google Maps) may be required for full functionality during deployment.
+## Project Live Link
+https://bittracker-dashboard.netlify.app
 
 
 
