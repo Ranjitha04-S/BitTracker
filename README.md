@@ -8,6 +8,9 @@
 
 Each component has been thoughtfully designed for clarity, responsiveness, and ease of use across a wide range of devices.
 
+<img width="1919" height="931" alt="image" src="https://github.com/user-attachments/assets/99ceb572-18bb-457a-b3ae-f87259c6a2d4" />
+
+
 ## Technologies Used
 
 - **Framework:** React (with Vite for rapid development and optimized performance)
@@ -27,7 +30,6 @@ Each component has been thoughtfully designed for clarity, responsiveness, and e
 - Estimation of cryptocurrency tax liabilities based on user input
 
 ## Project Live Link
-<img width="1919" height="931" alt="image" src="https://github.com/user-attachments/assets/99ceb572-18bb-457a-b3ae-f87259c6a2d4" />
 
 https://bittracker-dashboard.netlify.app
 
