@@ -99,23 +99,6 @@ Open `http://localhost:5173`
 
 ---
 
-## 🌐 Deploy to Netlify
-
-```bash
-npm run build    # Output → dist/
-```
-
-**Netlify Build Settings:**
-- Build command → `npm run build`
-- Publish directory → `dist`
-
-**Required:** Create `public/_redirects` to fix page refresh 404:
-```
-/*    /index.html   200
-```
-
----
-
 ## 🧮 Tax Calculator — Supported Regions
 
 | Country | Short Term | Long Term |
@@ -127,11 +110,6 @@ npm run build    # Output → dist/
 | 🇨🇦 Canada | 50% | 25% |
 | 🇮🇳 India | 30% | 30% |
 
----
-
-## 👩‍💻 Author
-
-Made by **Ranjitha S** — [@Ranjitha04-S](https://github.com/Ranjitha04-S)
 
 ---
 
